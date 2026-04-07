@@ -110,6 +110,13 @@ const SystemSetting = () => {
     'fetch_setting.ip_list': [],
     'fetch_setting.allowed_ports': [],
     'fetch_setting.apply_ip_filter_for_domain': true,
+    'langfuse.enabled': false,
+    'langfuse.base_url': '',
+    'langfuse.public_key': '',
+    'langfuse.secret_key': '',
+    'langfuse.timeout_seconds': 5,
+    'langfuse.max_queue_size': 256,
+    'langfuse.worker_count': 2,
   });
 
   const [originInputs, setOriginInputs] = useState({});
@@ -146,6 +153,7 @@ const SystemSetting = () => {
           case 'fetch_setting.domain_filter_mode':
           case 'fetch_setting.ip_filter_mode':
           case 'fetch_setting.apply_ip_filter_for_domain':
+          case 'langfuse.enabled':
             item.value = toBoolean(item.value);
             break;
           case 'fetch_setting.domain_list':
@@ -190,6 +198,7 @@ const SystemSetting = () => {
           case 'passkey.enabled':
           case 'passkey.allow_insecure_origin':
           case 'WorkerAllowHttpImageRequestEnabled':
+          case 'langfuse.enabled':
             item.value = toBoolean(item.value);
             break;
           case 'passkey.origins':
@@ -394,6 +403,75 @@ const SystemSetting = () => {
       options.push({
         key: 'fetch_setting.allowed_ports',
         value: JSON.stringify(allowedPorts),
+      });
+    }
+
+    if (options.length > 0) {
+      await updateOptions(options);
+    }
+  };
+
+  const submitLangfuse = async () => {
+    const options = [];
+
+    if (originInputs['langfuse.enabled'] !== inputs['langfuse.enabled']) {
+      options.push({
+        key: 'langfuse.enabled',
+        value: inputs['langfuse.enabled'],
+      });
+    }
+
+    if (originInputs['langfuse.base_url'] !== inputs['langfuse.base_url']) {
+      options.push({
+        key: 'langfuse.base_url',
+        value: removeTrailingSlash(inputs['langfuse.base_url']),
+      });
+    }
+    if (
+      originInputs['langfuse.public_key'] !== inputs['langfuse.public_key'] &&
+      inputs['langfuse.public_key'] !== ''
+    ) {
+      options.push({
+        key: 'langfuse.public_key',
+        value: inputs['langfuse.public_key'],
+      });
+    }
+    if (
+      originInputs['langfuse.secret_key'] !== inputs['langfuse.secret_key'] &&
+      inputs['langfuse.secret_key'] !== ''
+    ) {
+      options.push({
+        key: 'langfuse.secret_key',
+        value: inputs['langfuse.secret_key'],
+      });
+    }
+    if (
+      originInputs['langfuse.timeout_seconds'] !==
+        inputs['langfuse.timeout_seconds'] &&
+      inputs['langfuse.timeout_seconds'] !== ''
+    ) {
+      options.push({
+        key: 'langfuse.timeout_seconds',
+        value: inputs['langfuse.timeout_seconds'],
+      });
+    }
+    if (
+      originInputs['langfuse.max_queue_size'] !==
+        inputs['langfuse.max_queue_size'] &&
+      inputs['langfuse.max_queue_size'] !== ''
+    ) {
+      options.push({
+        key: 'langfuse.max_queue_size',
+        value: inputs['langfuse.max_queue_size'],
+      });
+    }
+    if (
+      originInputs['langfuse.worker_count'] !== inputs['langfuse.worker_count'] &&
+      inputs['langfuse.worker_count'] !== ''
+    ) {
+      options.push({
+        key: 'langfuse.worker_count',
+        value: inputs['langfuse.worker_count'],
       });
     }
 
@@ -732,6 +810,81 @@ const SystemSetting = () => {
                   <Button onClick={submitServerAddress}>
                     {t('更新服务器地址')}
                   </Button>
+                </Form.Section>
+              </Card>
+
+              <Card>
+                <Form.Section text={t('Langfuse')}>
+                  <Banner
+                    type='info'
+                    description={t(
+                      'Langfuse 追踪会在后台异步发送，不会阻塞正常转发请求。自托管实例需要同时满足 SSRF/Fetch 安全策略。',
+                    )}
+                    style={{ marginBottom: 20, marginTop: 16 }}
+                  />
+                  <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Switch
+                        field='langfuse.enabled'
+                        label={t('启用 Langfuse')}
+                        checkedText='｜'
+                        uncheckedText='〇'
+                        onChange={(value) =>
+                          handleFormChange({
+                            ...inputs,
+                            'langfuse.enabled': value,
+                          })
+                        }
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field="['langfuse.base_url']"
+                        label={t('Langfuse 地址')}
+                        placeholder='https://langfuse.example.com'
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field='langfuse.public_key'
+                        label={t('Public Key')}
+                        placeholder='pk-lf-...'
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+                      <Form.Input
+                        field='langfuse.secret_key'
+                        label={t('Secret Key')}
+                        mode='password'
+                        placeholder='sk-lf-...'
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.InputNumber
+                        field='langfuse.timeout_seconds'
+                        label={t('请求超时秒数')}
+                        min={1}
+                        step={1}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.InputNumber
+                        field='langfuse.max_queue_size'
+                        label={t('队列长度')}
+                        min={1}
+                        step={1}
+                      />
+                    </Col>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
+                      <Form.InputNumber
+                        field='langfuse.worker_count'
+                        label={t('Worker 数量')}
+                        min={1}
+                        step={1}
+                      />
+                    </Col>
+                  </Row>
+                  <Button onClick={submitLangfuse}>{t('更新 Langfuse 配置')}</Button>
                 </Form.Section>
               </Card>
 

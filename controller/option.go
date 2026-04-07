@@ -3,10 +3,12 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -260,6 +262,23 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "langfuse.base_url":
+		err = service.ValidateLangfuseBaseURLForOption(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "langfuse.timeout_seconds", "langfuse.max_queue_size", "langfuse.worker_count":
+		if _, convErr := strconv.Atoi(option.Value.(string)); convErr != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "配置值必须为整数",
+			})
+			return
+		}
 	case "console_setting.api_info":
 		err = console_setting.ValidateConsoleSettings(option.Value.(string), "ApiInfo")
 		if err != nil {
@@ -301,6 +320,9 @@ func UpdateOption(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if strings.HasPrefix(option.Key, "langfuse.") {
+		service.ReloadLangfuse()
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

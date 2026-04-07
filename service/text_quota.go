@@ -413,6 +413,8 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		other["input_tokens_total"] = usage.InputTokens
 	}
 
+	SetLangfuseUsage(ctx, LangfuseUsageFromDTO(usage, summary.Quota, other))
+
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     summary.PromptTokens,

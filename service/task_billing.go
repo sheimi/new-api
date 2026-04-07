@@ -50,6 +50,15 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
+	SetLangfuseUsage(c, &LangfuseUsage{
+		Quota: info.PriceData.Quota,
+		Details: map[string]any{
+			"is_task":      true,
+			"request_path": c.Request.URL.Path,
+			"model_price":  info.PriceData.ModelPrice,
+			"group_ratio":  info.PriceData.GroupRatioInfo.GroupRatio,
+		},
+	})
 	model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		ChannelId: info.ChannelId,
 		ModelName: info.OriginModelName,

@@ -73,7 +73,21 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	var (
 		newAPIError *types.NewAPIError
 		ws          *websocket.Conn
+		capture     *service.LangfuseResponseCapture
+		relayInfo   *relaycommon.RelayInfo
 	)
+
+	if relayFormat != types.RelayFormatOpenAIRealtime {
+		capture = service.NewLangfuseResponseCapture(c.Writer)
+		c.Writer = capture
+	}
+
+	defer func() {
+		if relayInfo == nil || capture == nil {
+			return
+		}
+		service.SetLangfuseRelayMetadata(c, relayInfo, capture, newAPIError)
+	}()
 
 	if relayFormat == types.RelayFormatOpenAIRealtime {
 		var err error
@@ -116,7 +130,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		return
 	}
 
-	relayInfo, err := relaycommon.GenRelayInfo(c, relayFormat, request, ws)
+	relayInfo, err = relaycommon.GenRelayInfo(c, relayFormat, request, ws)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
 		return
@@ -477,7 +491,23 @@ func RelayTaskFetch(c *gin.Context) {
 }
 
 func RelayTask(c *gin.Context) {
-	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
+	capture := service.NewLangfuseResponseCapture(c.Writer)
+	c.Writer = capture
+
+	var relayInfo *relaycommon.RelayInfo
+	var err error
+	defer func() {
+		if relayInfo == nil {
+			return
+		}
+		var traceErr *types.NewAPIError
+		if capture.Status() >= http.StatusBadRequest {
+			traceErr = types.NewOpenAIError(fmt.Errorf("%s", http.StatusText(capture.Status())), types.ErrorCodeBadResponseStatusCode, capture.Status())
+		}
+		service.SetLangfuseRelayMetadata(c, relayInfo, capture, traceErr)
+	}()
+
+	relayInfo, err = relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &dto.TaskError{
 			Code:       "gen_relay_info_failed",
@@ -569,6 +599,7 @@ func RelayTask(c *gin.Context) {
 			common.SysError("settle task billing error: " + settleErr.Error())
 		}
 		service.LogTaskConsumption(c, relayInfo)
+		service.SetLangfuseTaskResult(c, service.NewLangfuseTaskSubmitResult(relayInfo, string(result.Platform), result.UpstreamTaskID, result.Quota, result.TaskData))
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
